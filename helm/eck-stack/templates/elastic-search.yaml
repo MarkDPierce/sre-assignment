@@ -1,0 +1,230 @@
+{{- if .Values.elastic }}
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: {{ template "cluster.name" . }}
+spec:
+  version: {{ .Values.elastic.version | default "8.6.2" }}
+  volumeClaimDeletePolicy: DeleteOnScaledownOnly
+  auth:
+    fileRealm:
+    - secretName: es-users-file-realm
+  updateStrategy:
+    changeBudget:
+      maxSurge: 3
+      maxUnavailable: 1
+  podDisruptionBudget:
+    spec:
+      minAvailable: 2
+      selector:
+        matchLabels:
+          elasticsearch.k8s.elastic.co/cluster-name: {{ template "cluster.name" . }}
+  nodeSets:
+  - name: masters
+    count: {{ .Values.elastic.master.count | default 1 }}
+    config:
+      node.roles: {{ toJson (default (list "master") .Values.elastic.master.nodeRoles) }}
+    podTemplate:
+      spec:
+      {{- if .Values.elastic.master.priorityClassName }}
+        priorityClassName: {{ .Values.elastic.master.priorityClassName }}
+      {{- end }}
+        affinity:
+          podAntiAffinity:
+          # Using preffered since "required" could prevent pods from being created.
+          # Tried a combo of selectors most pretty much would stop all pods getting deployed
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    elasticsearch.k8s.elastic.co/cluster-name: {{ template "cluster.name" . }}
+                topologyKey: kubernetes.io/hostname
+        containers:
+        - name: {{ .Values.elastic.container.name | default "elasticsearch"}}
+          resources:
+            limits:
+              cpu: {{ .Values.elastic.master.container.resources.limits.cpu }}
+              memory: {{ .Values.elastic.master.container.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.elastic.master.container.resources.requests.cpu }}
+              memory: {{ .Values.elastic.master.container.resources.requests.memory }}
+        initContainers:
+        - name: sysctl
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        storageClassName: {{ .Values.elastic.master.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.elastic.master.storageSize | default "100M" }}
+  {{- if gt .Values.elastic.data.count 0.0 }}
+  - name: data
+    count: {{ .Values.elastic.data.count | default 0 }}
+    config:
+      node.roles: {{ toJson (default (list "data") .Values.elastic.data.nodeRoles) }}
+    podTemplate:
+      spec:
+      {{- if .Values.elastic.data.priorityClassName }}
+        priorityClassName: {{ .Values.elastic.data.priorityClassName }}
+      {{- end }}
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    elasticsearch.k8s.elastic.co/cluster-name: {{ template "cluster.name" . }}
+                topologyKey: kubernetes.io/hostname
+        containers:
+        - name: {{ .Values.elastic.container.name | default "elasticsearch"}}
+          resources:
+            limits:
+              cpu: {{ .Values.elastic.data.container.resources.limits.cpu }}
+              memory: {{ .Values.elastic.data.container.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.elastic.data.container.resources.requests.cpu }}
+              memory: {{ .Values.elastic.data.container.resources.requests.memory }}
+        initContainers:
+        - name: sysctl
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        storageClassName: {{ .Values.elastic.data.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.elastic.data.storageSize | default "100M" }}
+  {{- end }}
+  {{- if gt .Values.elastic.data.hot.count 0.0 }}
+  - name: data-hot
+    count: {{ .Values.elastic.data.hot.count | default 0 }}
+    config:
+      node.roles: {{ toJson (default (list "data_hot")  .Values.elastic.data.hot.nodeRoles) }}
+    podTemplate:
+      spec:
+      {{- if .Values.elastic.data.hot.priorityClassName }}
+        priorityClassName: {{ .Values.elastic.data.hot.priorityClassName }}
+      {{- end }}
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    elasticsearch.k8s.elastic.co/cluster-name: {{ template "cluster.name" . }}
+                topologyKey: kubernetes.io/hostname
+        containers:
+        - name: {{ .Values.elastic.container.name | default "elasticsearch"}}
+          resources:
+            limits:
+              cpu: {{ .Values.elastic.data.hot.container.resources.limits.cpu }}
+              memory: {{ .Values.elastic.data.hot.container.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.elastic.data.hot.container.resources.requests.cpu }}
+              memory: {{ .Values.elastic.data.hot.container.resources.requests.memory }}
+        initContainers:
+        - name: sysctl
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        storageClassName: {{ .Values.elastic.data.hot.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.elastic.data.hot.storageSize | default "100M" }}
+  {{- end }}
+  {{- if gt .Values.elastic.data.warm.count 0.0 }}
+  - name: data-warm
+    count: {{ .Values.elastic.data.warm.count | default 0 }}
+    config:
+      node.roles: {{ toJson (default (list "data_warm") .Values.elastic.data.warm.nodeRoles) }}
+    podTemplate:
+      spec:
+      {{- if .Values.elastic.data.warm.priorityClassName }}
+        priorityClassName: {{ .Values.elastic.data.warm.priorityClassName }}
+      {{- end }}
+        containers:
+        - name: {{ .Values.elastic.container.name | default "elasticsearch"}}
+          resources:
+            limits:
+              cpu: {{ .Values.elastic.data.warm.container.resources.limits.cpu }}
+              memory: {{ .Values.elastic.data.warm.container.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.elastic.data.warm.container.resources.requests.cpu }}
+              memory: {{ .Values.elastic.data.warm.container.resources.requests.memory }}
+        initContainers:
+        - name: sysctl
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        storageClassName: {{ .Values.elastic.data.warm.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.elastic.data.warm.storageSize | default "100M" }}
+  {{- end }}
+  {{- if gt .Values.elastic.data.cold.count 0.0 }}
+  - name: data-cold
+    count: {{ .Values.elastic.data.cold.count | default 0 }}
+    config:
+      node.roles: {{ toJson (default (list "data_cold") .Values.elastic.data.cold.nodeRoles) }}
+    podTemplate:
+      spec:
+      {{- if .Values.elastic.data.cold.priorityClassName }}
+        priorityClassName: {{ .Values.elastic.data.cold.priorityClassName }}
+      {{- end }}
+        containers:
+        - name: {{ .Values.elastic.container.name | default "elasticsearch"}}
+          resources:
+            limits:
+              cpu: {{ .Values.elastic.data.cold.container.resources.limits.cpu }}
+              memory: {{ .Values.elastic.data.cold.container.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.elastic.data.cold.container.resources.requests.cpu }}
+              memory: {{ .Values.elastic.data.cold.container.resources.requests.memory }}
+        initContainers:
+        - name: sysctl
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        storageClassName: {{ .Values.elastic.data.cold.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.elastic.data.cold.storageSize | default "100M" }}
+  {{- end }}
+{{- end }}

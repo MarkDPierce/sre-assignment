@@ -1,0 +1,30 @@
+{{- if .Values.kibana.enabled  }}
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: kibana
+spec:
+  version: {{ .Values.kibana.version | default "8.6.2" }}
+  count: 1
+  elasticsearchRef:
+    name: {{ template "cluster.name" . }}
+  podTemplate:
+    spec:
+      {{- if .Values.kibana.priorityClassName }}
+      priorityClassName: {{ .Values.kibana.priorityClassName }}
+      {{- end }}
+      containers:
+      - name: kibana
+        env:
+          - name: NODE_OPTIONS
+            value: "--max-old-space-size=2048"
+          - name: SERVER_PUBLICBASEURL
+            value: {{ .Values.kibana.envVars.SERVER_PUBLICBASEURL | default "https://kibana.yourdomain.com" }}
+        resources:
+          requests:
+            memory: {{ .Values.kibana.container.resources.requests.memory }}
+            cpu: {{ .Values.kibana.container.resources.requests.cpu }}
+          limits:
+            memory: {{ .Values.kibana.container.resources.limits.memory }}
+            cpu: {{ .Values.kibana.container.resources.limits.cpu }}
+{{- end }}

@@ -1,0 +1,9 @@
+apiVersion: v2
+name: elasticsearch
+description: A custom parent Helm chart for eck-operator
+dependencies:
+- name: eck-operator-crds
+  version: 2.12.1
+- name: eck-operator
+  version: 2.12.1
+version: 0.0.1

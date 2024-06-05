@@ -1,0 +1,136 @@
+eck-operator-crds:
+  global:
+    manifestGen: true
+
+eck-operator:
+  config:
+    metrics:
+      port: 8080
+
+  resources:
+    limits:
+      cpu: 1
+      memory: 500Gi
+    requests:
+      cpu: 100m
+      memory: 150Mi
+
+# Since everyting needs to look the same. I'll just use these vars for all nodes.
+nodeRoles: &nodeRoles ["master", "data", "data_content", "data_hot", "data_warm", "data_cold", "ingest"]
+
+# 'Prod' Values
+storageClassName: &storageClassName "gp2"
+storageSize: &storageSize 2Gi
+
+elastic:
+  version: 8.13.4
+  # Not needed but can be used to over-ride the default
+  #clusterName: 
+  container:
+    name: elasticsearch
+
+  # Used in setup as a generic data node due to the configured 'nodeRoles'
+  master:
+    priorityClassName: elastic-cluster-high-priority
+    count: 3
+    nodeRoles: *nodeRoles
+    storageClassName: *storageClassName
+    storageSize: *storageSize
+    container:
+      resources:
+        limits:
+          cpu: 1.5
+          memory: 4Gi
+        requests:
+          cpu: 1
+          memory: 2Gi
+
+  # Used in setup as a generic data node due to the configured 'nodeRoles'
+  data:
+    priorityClassName: elastic-cluster-high-priority
+    count: 3
+    nodeRoles: *nodeRoles
+    storageClassName: *storageClassName
+    storageSize: *storageSize
+    container:
+      resources:
+        limits:
+          cpu: 1.5
+          memory: 4Gi
+        requests:
+          cpu: 1
+          memory: 2Gi
+    
+    # Used in setup as a generic data node due to the configured 'nodeRoles'
+    hot:
+      priorityClassName: elastic-cluster-high-priority
+      count: 3
+      nodeRoles: *nodeRoles
+      storageClassName: *storageClassName
+      storageSize: *storageSize
+      container:
+        resources:
+          limits:
+            cpu: 1.5
+            memory: 4Gi
+          requests:
+            cpu: 1
+            memory: 2Gi
+
+    # Not used in this setup
+    warm:
+      count: 0
+      storageClassName: "local-path"
+      storageSize: 100M
+      container:
+        resources:
+          limits:
+            cpu: 1.5
+            memory: 4.5Gi
+          requests:
+            cpu: 1
+            memory: 2Gi
+    
+    # Not used in this setup
+    cold:
+      count: 0
+      storageClassName: "local-path"
+      storageSize: 100M
+      container:
+        resources:
+          limits:
+            cpu: 1.5
+            memory: 4.5Gi
+          requests:
+            cpu: 1
+            memory: 2Gi
+
+# Used filebeat and Kibana to test log and index things. Its not needed but can be enabled. It should 'work' but making it work is outside the scope of the assignment.
+filebeat:
+  enabled: false
+  envVars:
+    ELASTICSEARCH_HOST: "elastic-cluster-es-http.elastic-system.svc.cluster.local"
+    ELASTICSEARCH_PORT: "9200"
+    ELASTICSEARCH_USERNAME: "filebeat"
+  
+  container:
+    resources:
+      limits:
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 1Gi
+
+# Used filebeat and Kibana to test log and index things. Its not needed but can be enabled. It should 'work' but making it work is outside the scope of the assignment.
+kibana:
+  enabled: false
+  version: 8.13.4
+  #priorityClassName:
+  container:
+    resources:
+      limits:
+        cpu: 1
+        memory: 2Gi
+      requests:
+        cpu: 0.5
+        memory: 1Gi
